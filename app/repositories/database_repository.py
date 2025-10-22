@@ -142,11 +142,15 @@ class DatabaseRepository:
             cursor.close()
             conn.close()
     
-    def test_connection(self) -> bool:
-        """Verifica la conexión a la base de datos"""
+    def test_connection(self):
+        """Verifica la conexión a la base de datos y retorna información del error si falla"""
         try:
             conn = self.get_connection()
             conn.close()
-            return True
-        except Exception:
-            return False
+            return {"success": True, "message": "Conexión exitosa"}
+        except Exception as e:
+            return {
+                "success": False,
+                "error": getattr(e, "args", [""])[0],
+                "type": type(e).__name__,
+            }
