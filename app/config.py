@@ -1,0 +1,14 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Settings:
+    def __init__(self):
+        self.db_driver = os.getenv("DB_DRIVER", "FreeTDS")
+        self.db_server = os.getenv("DB_SERVER")
+        self.db_database = os.getenv("DB_DATABASE")
+        self.db_username = os.getenv("DB_USERNAME")
+        self.db_password = os.getenv("DB_PASSWORD")
+
+settings = Settings()
