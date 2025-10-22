@@ -87,6 +87,12 @@ async def process_excel(
 
     thread = threading.Thread(target=process_in_thread, daemon=True)
     thread.start()
+    return JobResponse(
+        job_id=job_id,
+        status=JobStatus.PENDING,
+        message="Archivo recibido y en proceso",
+        progress=0
+    )
 
 @router.get("/status/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
