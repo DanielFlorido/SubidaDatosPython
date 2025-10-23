@@ -1,5 +1,7 @@
 import pandas as pd
 import uuid
+import os
+import time
 from typing import List, Dict
 from decimal import Decimal, InvalidOperation
 from app.models.schemas import BalanceGeneralRow, ExcelData
@@ -10,7 +12,160 @@ from app.models.schemas import JobStatus
 class ExcelService:
     def __init__(self):
         self.repository = DatabaseRepository()
+
+    def _log_error(
+        self,
+        fecha: str,
+        identificacion_cliente: str,
+        archivo_origen: str,
+        observaciones: str,
+        nombre_cliente: str = None,
+        id_cliente: str = None,
+        tiempo_ejecucion: int = 0,
+        total_registros: int = 0,
+        totales_generales: dict = None,
+        totales_clase: dict = None,
+        errores_ecuacion_count: int = 0,
+        diferencia_ecuacion: Decimal = None
+    ):
+        """Helper para registrar logs de ERROR"""
+        
+        # Si no tenemos info del cliente, intentar obtenerla
+        if not nombre_cliente or not id_cliente:
+            cliente_info = self.repository.get_cliente_info(identificacion_cliente)
+            id_cliente = cliente_info["id_cliente"]
+            nombre_cliente = cliente_info["nombre_cliente"]
+        
+        # Valores por defecto si no hay totales
+        if not totales_generales:
+            totales_generales = {
+                "suma_saldo_inicial": Decimal('0'),
+                "suma_debito": Decimal('0'),
+                "suma_credito": Decimal('0')
+            }
+        
+        if not totales_clase:
+            totales_clase = {
+                "total_clase_1": Decimal('0'),
+                "total_clase_2": Decimal('0'),
+                "total_clase_3": Decimal('0'),
+                "total_clase_4": Decimal('0'),
+                "total_clase_5": Decimal('0')
+            }
+        
+        if diferencia_ecuacion is None:
+            diferencia_ecuacion = Decimal('0')
+        
+        try:
+            self.repository.insert_log_carga(
+                fecha_carga=fecha,
+                id_cliente=str(id_cliente) if id_cliente else identificacion_cliente,
+                nombre_cliente=nombre_cliente,
+                estado='ERROR',
+                total_registros=total_registros,
+                total_activos=totales_clase["total_clase_1"],
+                total_pasivos=totales_clase["total_clase_2"],
+                total_patrimonio=totales_clase["total_clase_3"],
+                total_ingresos=totales_clase["total_clase_4"],
+                total_gastos=totales_clase["total_clase_5"],
+                suma_saldo_inicial=totales_generales["suma_saldo_inicial"],
+                suma_debito=totales_generales["suma_debito"],
+                suma_credito=totales_generales["suma_credito"],
+                observaciones=observaciones,
+                archivo_origen=archivo_origen,
+                cantidad_errores_jerarquia=errores_ecuacion_count,
+                diferencia_ecuacion_contable=diferencia_ecuacion,
+                tiempo_ejecucion=tiempo_ejecucion
+            )
+            print(f"📝 Log de ERROR guardado")
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar log de error: {str(e)}")
     
+    def _log_exitoso(
+        self,
+        fecha: str,
+        identificacion_cliente: str,
+        archivo_origen: str,
+        nombre_cliente: str,
+        id_cliente: str,
+        tiempo_ejecucion: int,
+        totales_generales: dict,
+        totales_clase: dict,
+        ecuacion: dict,
+        errores_ecuacion_count: int,
+        observaciones: str = None
+    ):
+        """Helper para registrar logs EXITOSOS"""
+        
+        if not observaciones:
+            observaciones = 'Carga completada correctamente. Todas las validaciones pasaron.'
+        
+        try:
+            self.repository.insert_log_carga(
+                fecha_carga=fecha,
+                id_cliente=str(id_cliente) if id_cliente else identificacion_cliente,
+                nombre_cliente=nombre_cliente,
+                estado='EXITOSO',
+                total_registros=totales_generales["total_registros"],
+                total_activos=totales_clase["total_clase_1"],
+                total_pasivos=totales_clase["total_clase_2"],
+                total_patrimonio=totales_clase["total_clase_3"],
+                total_ingresos=totales_clase["total_clase_4"],
+                total_gastos=totales_clase["total_clase_5"],
+                suma_saldo_inicial=totales_generales["suma_saldo_inicial"],
+                suma_debito=totales_generales["suma_debito"],
+                suma_credito=totales_generales["suma_credito"],
+                observaciones=observaciones,
+                archivo_origen=archivo_origen,
+                cantidad_errores_jerarquia=errores_ecuacion_count,
+                diferencia_ecuacion_contable=ecuacion["diferencia_ecuacion_contable"],
+                tiempo_ejecucion=tiempo_ejecucion
+            )
+            print(f"📝 Log EXITOSO guardado")
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar log exitoso: {str(e)}")
+    
+    def _log_advertencia(
+        self,
+        fecha: str,
+        identificacion_cliente: str,
+        archivo_origen: str,
+        nombre_cliente: str,
+        id_cliente: str,
+        tiempo_ejecucion: int,
+        totales_generales: dict,
+        totales_clase: dict,
+        ecuacion: dict,
+        errores_ecuacion_count: int,
+        observaciones: str
+    ):
+        """Helper para registrar logs con ADVERTENCIA"""
+        
+        try:
+            self.repository.insert_log_carga(
+                fecha_carga=fecha,
+                id_cliente=str(id_cliente) if id_cliente else identificacion_cliente,
+                nombre_cliente=nombre_cliente,
+                estado='ADVERTENCIA',
+                total_registros=totales_generales["total_registros"],
+                total_activos=totales_clase["total_clase_1"],
+                total_pasivos=totales_clase["total_clase_2"],
+                total_patrimonio=totales_clase["total_clase_3"],
+                total_ingresos=totales_clase["total_clase_4"],
+                total_gastos=totales_clase["total_clase_5"],
+                suma_saldo_inicial=totales_generales["suma_saldo_inicial"],
+                suma_debito=totales_generales["suma_debito"],
+                suma_credito=totales_generales["suma_credito"],
+                observaciones=observaciones,
+                archivo_origen=archivo_origen,
+                cantidad_errores_jerarquia=errores_ecuacion_count,
+                diferencia_ecuacion_contable=ecuacion["diferencia_ecuacion_contable"],
+                tiempo_ejecucion=tiempo_ejecucion
+            )
+            print(f"📝 Log de ADVERTENCIA guardado")
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar log de advertencia: {str(e)}")
+
     def _is_empty_row(self, row) -> bool:
         """Verifica si una fila está vacía o contiene solo valores NaN"""
         # Verifica campos clave que siempre deben tener valor
@@ -152,110 +307,205 @@ class ExcelService:
             "errors": errors,
             "total_rows": len(rows)
         }
+    
     def process_and_save_async(
-            self,
-            file_path: str,
-            identificacion_cliente: str,
-            fecha: str,
-            job_id: str
-        ):
-            """Procesa y guarda el archivo de forma asíncrona"""
-            try:
-                # 1. Actualizar estado: Procesando
-                job_manager.update_job(
-                    job_id,
-                    status=JobStatus.PROCESSING,
-                    message="Leyendo archivo Excel...",
-                    progress=10
-                )
-                
-                # Procesar Excel
-                excel_data = self.process_excel_file(
-                    file_path,
-                    identificacion_cliente,
-                    fecha
-                )
-                
-                total_rows = len(excel_data.rows)
-                job_manager.update_job(
-                    job_id,
-                    message=f"Archivo procesado: {total_rows} filas encontradas",
-                    progress=30,
-                    total_rows=total_rows
-                )
-                
-                # 2. Actualizar estado: Validando
-                job_manager.update_job(
-                    job_id,
-                    status=JobStatus.VALIDATING,
-                    message="Validando datos...",
-                    progress=40
-                )
-                
-                # Validar datos
-                validation_result = self.validate_data(
-                    excel_data.rows,
-                    fecha,
-                    identificacion_cliente
-                )
-                
-                if not validation_result["valid"]:
-                    # Validación falló
-                    job_manager.update_job(
-                        job_id,
-                        status=JobStatus.FAILED,
-                        message="Validación falló",
-                        progress=100,
-                        errors=validation_result["errors"]
-                    )
-                    return
-                
-                job_manager.update_job(
-                    job_id,
-                    message="Validación exitosa",
-                    progress=50
-                )
-                
-                # 3. Actualizar estado: Guardando
-                job_manager.update_job(
-                    job_id,
-                    status=JobStatus.SAVING,
-                    message="Guardando en base de datos...",
-                    progress=60
-                )
-                
-                # Guardar en base de datos
-                result = self.save_to_database(
-                    excel_data.rows,
-                    fecha,
-                    identificacion_cliente
-                )
-                
-                # 4. Verificar resultados
-                if result["failed"] > 0:
-                    job_manager.update_job(
-                        job_id,
-                        status=JobStatus.COMPLETED,
-                        message=f"Proceso completado con errores: {result['successful']} exitosos, {result['failed']} fallidos",
-                        progress=100,
-                        processed_rows=result["successful"],
-                        errors=result["errors"]
-                    )
-                else:
-                    job_manager.update_job(
-                        job_id,
-                        status=JobStatus.COMPLETED,
-                        message=f"Proceso completado exitosamente: {result['successful']} filas guardadas",
-                        progress=100,
-                        processed_rows=result["successful"]
-                    )
+        self,
+        file_path: str,
+        identificacion_cliente: str,
+        fecha: str,
+        job_id: str
+    ):
+        """Procesa, valida y guarda el archivo con transacción completa"""
+        start_time = time.time()
+        archivo_origen = os.path.basename(file_path)
+        
+        try:
+            # 1. Procesamiento del Excel
+            job_manager.update_job(
+                job_id,
+                status=JobStatus.PROCESSING,
+                message="Leyendo archivo Excel...",
+                progress=10
+            )
             
-            except Exception as e:
-                # Error general
+            excel_data = self.process_excel_file(
+                file_path,
+                identificacion_cliente,
+                fecha
+            )
+            
+            total_rows = len(excel_data.rows)
+            job_manager.update_job(
+                job_id,
+                message=f"Archivo procesado: {total_rows} filas encontradas",
+                progress=20,
+                total_rows=total_rows
+            )
+            
+            # 2. Validación de estructura
+            job_manager.update_job(
+                job_id,
+                status=JobStatus.VALIDATING,
+                message="Validando estructura de datos...",
+                progress=30
+            )
+            
+            validation_result = self.validate_data(
+                excel_data.rows,
+                fecha,
+                identificacion_cliente
+            )
+            
+            if not validation_result["valid"]:
+                tiempo_ejecucion = int(time.time() - start_time)
+                
+                # Log de error - validación de estructura
+                self._log_error(
+                    fecha=fecha,
+                    identificacion_cliente=identificacion_cliente,
+                    archivo_origen=archivo_origen,
+                    observaciones=f"Validación de estructura falló: {', '.join(validation_result['errors'][:3])}",
+                    tiempo_ejecucion=tiempo_ejecucion
+                )
+                
                 job_manager.update_job(
                     job_id,
                     status=JobStatus.FAILED,
-                    message=f"Error en el procesamiento: {str(e)}",
+                    message="Validación de estructura falló",
                     progress=100,
-                    errors=[str(e)]
+                    errors=validation_result["errors"]
                 )
+                return
+            
+            # 3. TRANSACCIÓN COMPLETA: Guardar y Validar
+            job_manager.update_job(
+                job_id,
+                status=JobStatus.SAVING,
+                message="Guardando datos en transacción...",
+                progress=50
+            )
+            
+            print(f"🔄 Iniciando transacción completa...")
+            
+            # Ejecutar transacción con validaciones
+            result = self.repository.save_with_transaction_and_validations(
+                rows=excel_data.rows,
+                fecha=fecha,
+                identificacion_cliente=identificacion_cliente
+            )
+            
+            # Obtener info del cliente
+            cliente_info = self.repository.get_cliente_info(identificacion_cliente)
+            id_cliente = cliente_info["id_cliente"]
+            nombre_cliente = cliente_info["nombre_cliente"]
+            tiempo_ejecucion = int(time.time() - start_time)
+            
+            print(f"📋 Cliente: {nombre_cliente} (ID: {id_cliente})")
+            
+            # 4. Procesar resultado de la transacción
+            if not result["success"]:
+                # ROLLBACK ejecutado - Log de error
+                print(f"❌ Transacción fallida: {result['message']}")
+                
+                self._log_error(
+                    fecha=fecha,
+                    identificacion_cliente=identificacion_cliente,
+                    archivo_origen=archivo_origen,
+                    observaciones=result["message"],
+                    nombre_cliente=nombre_cliente,
+                    id_cliente=id_cliente,
+                    tiempo_ejecucion=tiempo_ejecucion,
+                    total_registros=result.get("rows_inserted", 0),
+                    totales_generales=result.get("totales_generales"),
+                    totales_clase=result.get("totales_clase"),
+                    errores_ecuacion_count=result.get("errores_ecuacion_count", 0),
+                    diferencia_ecuacion=result.get("diferencia_ecuacion", Decimal('0'))
+                )
+                
+                job_manager.update_job(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    message=f"Validaciones contables fallaron: {result['message']}",
+                    progress=100,
+                    errors=result.get("errors", [])
+                )
+                return
+            
+            # 5. ÉXITO - Commit ejecutado
+            print(f"✅ Transacción exitosa - Datos guardados permanentemente")
+            
+            totales_generales = result["totales_generales"]
+            totales_clase = result["totales_clase"]
+            ecuacion = result["ecuacion"]
+            errores_ecuacion_count = result["errores_ecuacion_count"]
+            
+            # Determinar estado final
+            warnings = []
+            if errores_ecuacion_count > 0:
+                warnings.append(f"Se encontraron {errores_ecuacion_count} registros con diferencias menores en su ecuación individual")
+            
+            if warnings:
+                # Log con ADVERTENCIA
+                observaciones = '; '.join(warnings)
+                self._log_advertencia(
+                    fecha=fecha,
+                    identificacion_cliente=identificacion_cliente,
+                    archivo_origen=archivo_origen,
+                    nombre_cliente=nombre_cliente,
+                    id_cliente=id_cliente,
+                    tiempo_ejecucion=tiempo_ejecucion,
+                    totales_generales=totales_generales,
+                    totales_clase=totales_clase,
+                    ecuacion=ecuacion,
+                    errores_ecuacion_count=errores_ecuacion_count,
+                    observaciones=observaciones
+                )
+                estado = 'ADVERTENCIA'
+            else:
+                # Log EXITOSO
+                self._log_exitoso(
+                    fecha=fecha,
+                    identificacion_cliente=identificacion_cliente,
+                    archivo_origen=archivo_origen,
+                    nombre_cliente=nombre_cliente,
+                    id_cliente=id_cliente,
+                    tiempo_ejecucion=tiempo_ejecucion,
+                    totales_generales=totales_generales,
+                    totales_clase=totales_clase,
+                    ecuacion=ecuacion,
+                    errores_ecuacion_count=errores_ecuacion_count
+                )
+                estado = 'EXITOSO'
+            
+            # Finalizar con éxito
+            job_manager.update_job(
+                job_id,
+                status=JobStatus.COMPLETED,
+                message=f"Proceso completado: {result['rows_inserted']} registros guardados. Estado: {estado}",
+                progress=100,
+                processed_rows=result["rows_inserted"],
+                errors=warnings if warnings else []
+            )
+            
+            print(f" Proceso finalizado exitosamente - Estado: {estado}")
+        
+        except Exception as e:
+            # Error general
+            print(f"❌ Error crítico en procesamiento: {str(e)}")
+            tiempo_ejecucion = int(time.time() - start_time)
+            
+            self._log_error(
+                fecha=fecha,
+                identificacion_cliente=identificacion_cliente,
+                archivo_origen=archivo_origen,
+                observaciones=f"Error crítico en procesamiento: {str(e)[:200]}",
+                tiempo_ejecucion=tiempo_ejecucion
+            )
+            
+            job_manager.update_job(
+                job_id,
+                status=JobStatus.FAILED,
+                message=f"Error crítico: {str(e)}",
+                progress=100,
+                errors=[str(e)]
+            )

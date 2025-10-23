@@ -68,7 +68,7 @@ class JobResponse(BaseModel):
     job_id: str
     status: JobStatus
     message: str
-    created_at: str
+    created_at: Optional[str] = None
 
 class JobStatusResponse(BaseModel):
     job_id: str
@@ -81,3 +81,45 @@ class JobStatusResponse(BaseModel):
     created_at: str
     updated_at: str
     completed_at: Optional[str] = None
+    
+class ValidationResult(BaseModel):
+    is_valid: bool
+    errors: List[str] = []
+    warnings: List[str] = []
+    
+class TotalesGenerales(BaseModel):
+    total_registros: int
+    suma_saldo_inicial: Decimal
+    suma_debito: Decimal
+    suma_credito: Decimal
+    suma_saldo_final: Decimal
+    suma_movimiento_mes: Decimal
+
+class TotalesPorClase(BaseModel):
+    total_clase_1: Decimal  # Activos
+    total_clase_2: Decimal  # Pasivos
+    total_clase_3: Decimal  # Patrimonio
+    total_clase_4: Decimal  # Ingresos
+    total_clase_5: Decimal  # Gastos
+
+class EcuacionContable(BaseModel):
+    activos: Decimal
+    pasivos: Decimal
+    patrimonio: Decimal
+    ingresos: Decimal
+    gastos: Decimal
+    diferencia_ecuacion_contable: Decimal
+
+class ErrorEcuacion(BaseModel):
+    id: int
+    nivel: str
+    codigo_cuenta: str
+    nombre_cuenta: str
+    identificacion: str
+    nombre_tercero: str
+    saldo_inicial: Decimal
+    movimiento_debito: Decimal
+    movimiento_credito: Decimal
+    saldo_final: Decimal
+    saldo_calculado: Decimal
+    diferencia: Decimal

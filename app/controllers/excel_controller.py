@@ -7,6 +7,7 @@ from app.models.schemas import JobResponse, JobStatusResponse, JobStatus
 from app.utils.job_manager import job_manager
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, BackgroundTasks
 from typing import List
+from datetime import datetime
 
 router = APIRouter(prefix="/api/balance", tags=["Balance General"])
 excel_service = ExcelService()
@@ -91,7 +92,8 @@ async def process_excel(
         job_id=job_id,
         status=JobStatus.PENDING,
         message="Archivo recibido y en proceso",
-        progress=0
+        progress=0,
+        created_at= datetime.utcnow().isoformat()
     )
 
 @router.get("/status/{job_id}", response_model=JobStatusResponse)
