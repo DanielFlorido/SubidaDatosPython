@@ -10,6 +10,7 @@ from app.models.schemas import (
     EcuacionContable,
     ErrorEcuacion
 )
+from app.utils.logger import app_logger, log_database_connection, log_transaction
 
 class DatabaseRepository:
     def __init__(self):
@@ -23,9 +24,17 @@ class DatabaseRepository:
             f"TDS_Version=8.0;"
             f"Encrypt=yes;"
         )
+        app_logger.info("DatabaseRepository initialized with provided connection settings.")
     
     def get_connection(self):
-        return pyodbc.connect(self.connection_string)
+        try:
+            app_logger.debug("Intentando conectar a la base de datos...")
+            conn = pyodbc.connect(self.connection_string)
+            app_logger.debug("Conexión establecida exitosamente")
+            return conn
+        except Exception as e:
+            app_logger.error(f"Error al conectar a BD: {str(e)}", exc_info=True)
+            raise
     
     def insert_balance_general_row(
         self, 
@@ -81,20 +90,44 @@ class DatabaseRepository:
             conn.close()
 
     def test_connection(self):
-        """Verifica la conexión a la base de datos y retorna información del error si falla"""
         try:
+            app_logger.info("Probando conexión a base de datos...")
             conn = self.get_connection()
+
+            cursor = conn.cursor()
+            cursor.execute("SELECT @@VERSION")
+            version = cursor.fetchone()[0]
+            cursor.close()
             conn.close()
+            log_database_connection(True)
+            app_logger.info(f"BD Version: {version[:100]}")
             return {"success": True, "message": "Conexión exitosa"}
-        except Exception as e:
-            return {
+        
+        except pyodbc.Error as e:
+            error_info = {
                 "success": False,
-                "error": getattr(e, "args", [""])[0],
-                "type": type(e).__name__,
+                "error_code": e.args[0] if e.args else "Unknown",
+                "error_message": e.args[1] if len(e.args) > 1 else str(e),
+                "type": "DatabaseError",
+                "server": settings.db_server,
+                "database": settings.db_database,
+                "driver": settings.db_driver
             }
+            log_database_connection(False, error_info)
+            app_logger.error(f"Error de pyodbc: {error_info}", exc_info=True)
+            return error_info
+        except Exception as e:
+            error_info = {
+                "success": False,
+                "error": str(e),
+                "type": type(e).__name__,
+                "server": settings.db_server,
+                "database": settings.db_database
+            }
+            log_database_connection(False, error_info)
+            app_logger.error(f"Error general: {error_info}", exc_info=True)
+            return error_info
     
-    # ---- Modificado: estas funciones aceptan un cursor opcional para poder ejecutarlas dentro
-    # ---- de la misma transacción que realiza las inserciones.
     def get_totales_generales(self, fecha: str, identificacion_cliente: str, cursor: Optional[pyodbc.Cursor]=None) -> TotalesGenerales:
         """Obtiene los totales generales de la carga. Si se pasa 'cursor', usa ese cursor (misma transacción)."""
         own_conn = None
@@ -396,11 +429,31 @@ class DatabaseRepository:
                 estado,
                 tiempo_ejecucion
             ))
-            # 🔧 Antes no había commit aquí: ahora confirmamos el log en su propia conexión
             conn.commit()
+            app_logger.info({
+                "action": "insert_log_carga",
+                "fecha_carga": fecha_carga,
+                "id_cliente": id_cliente,
+                "nombre_cliente": nombre_cliente,
+                "total_registros": total_registros,
+                "total_activos": float(total_activos),
+                "total_pasivos": float(total_pasivos),
+                "total_patrimonio": float(total_patrimonio),
+                "total_ingresos": float(total_ingresos),
+                "total_gastos": float(total_gastos),
+                "suma_saldo_inicial": float(suma_saldo_inicial),
+                "suma_debito": float(suma_debito),
+                "suma_credito": float(suma_credito),
+                "observaciones": observaciones,
+                "archivo_origen": archivo_origen,
+                "cantidad_errores_jerarquia": cantidad_errores_jerarquia,
+                "diferencia_ecuacion": float(diferencia_ecuacion_contable),
+                "estado": estado,
+                "tiempo_ejecucion": tiempo_ejecucion
+            })
+
             return True
         except Exception as e:
-            # mejor manejo: rollback y propagar
             try:
                 conn.rollback()
             except:
@@ -456,6 +509,7 @@ class DatabaseRepository:
         Ejecuta validaciones y hace ROLLBACK si no pasan.
         Solo hace COMMIT si todas las validaciones son exitosas.
         """
+        app_logger.info(f"Iniciando transacción | Cliente: {identificacion_cliente} | Fecha: {fecha} | Filas: {len(rows)}")
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -467,14 +521,11 @@ class DatabaseRepository:
             
             # INICIAR TRANSACCIÓN EXPLÍCITA
             cursor.execute("BEGIN TRANSACTION")
-            print(f"🔄 Transacción iniciada...")
-            
+            app_logger.info("Transacción iniciada")
             rows_inserted = 0
             errors = []
             
-            # 1. INSERTAR TODOS LOS REGISTROS
-            print(f"📥 Insertando {len(rows)} registros...")
-            
+            app_logger.info(f"Insertando {len(rows)} registros...")
             for idx, row in enumerate(rows):
                 try:
                     
@@ -516,9 +567,10 @@ class DatabaseRepository:
                 except Exception as e:
                     error_msg = f"Error insertando fila {idx + 8}: {str(e)}"
                     errors.append(error_msg)
-                    print(f"   ❌ {error_msg}")
+                    
+                    app_logger.error(error_msg, exc_info=True)
                     cursor.execute("ROLLBACK TRANSACTION")
-                    print(f"🔙 ROLLBACK ejecutado - Error en inserción")
+                    app_logger.info("ROLLBACK ejecutado: Transacción terminada con error en inserción")
                     return {
                         "success": False,
                         "message": f"Error insertando datos: {error_msg}",
@@ -526,15 +578,12 @@ class DatabaseRepository:
                         "errors": errors
                     }
             
-            print(f"✅ {rows_inserted} registros insertados en transacción")
+            app_logger.info(f"✅ {rows_inserted} registros insertados en transacción")
             
-            # 2. OBTENER TOTALES PARA VALIDACIÓN (USANDO EL MISMO CURSOR para ver datos no confirmados)
-            print(f"🔍 Obteniendo totales para validación (misma transacción)...")
-            
-            # Usamos las funciones existentes pasando el cursor para que ejecuten sus queries
             if id_cliente is None:
                 # Si no encontramos id_cliente en tabla Clientes, no podemos continuar con consultas por IdCliente
                 cursor.execute("ROLLBACK TRANSACTION")
+                app_logger.error("IdCliente no encontrado - ROLLBACK ejecutado")
                 return {
                     "success": False,
                     "message": "No se encontró IdCliente para la identificación proporcionada",
@@ -552,10 +601,11 @@ class DatabaseRepository:
                 "suma_saldo_final": totales_generales_obj.suma_saldo_final
             }
             
-            print(f"   Registros: {totales_generales['total_registros']}")
-            print(f"   Saldo Inicial: ${totales_generales['suma_saldo_inicial']:,.2f}")
-            print(f"   Débito: ${totales_generales['suma_debito']:,.2f}")
-            print(f"   Crédito: ${totales_generales['suma_credito']:,.2f}")
+            app_logger.info(f"Totales Generales calculados: {totales_generales}")            
+            app_logger.info(f"   Saldo Inicial: ${totales_generales['suma_saldo_inicial']:,.2f}")
+            app_logger.info(f"   Movimiento Débito: ${totales_generales['suma_debito']:,.2f}")
+            app_logger.info(f"   Crédito: ${totales_generales['suma_credito']:,.2f}")
+           
             
             # Totales por Clase
             totales_clase_obj = self.get_totales_por_clase(fecha, id_cliente, cursor=cursor)
@@ -566,12 +616,12 @@ class DatabaseRepository:
                 "total_clase_4": totales_clase_obj.total_clase_4,
                 "total_clase_5": totales_clase_obj.total_clase_5
             }
+            app_logger.info(f"Totales por Clase calculados: {totales_clase}")
             
             print(f"   Activos: ${totales_clase['total_clase_1']:,.2f}")
             print(f"   Pasivos: ${totales_clase['total_clase_2']:,.2f}")
             print(f"   Patrimonio: ${totales_clase['total_clase_3']:,.2f}")
             
-            # Ecuación Contable
             ecuacion_obj = self.get_ecuacion_contable(fecha, id_cliente, cursor=cursor)
             diferencia_ecuacion = ecuacion_obj.diferencia_ecuacion_contable
             
@@ -582,30 +632,24 @@ class DatabaseRepository:
                 "diferencia_ecuacion_contable": diferencia_ecuacion
             }
             
-            print(f"   Diferencia Ecuación Contable: ${diferencia_ecuacion:,.2f}")
 
-            # Contar errores individuales
+
+
             errores_ecuacion_list = self.get_errores_ecuacion(fecha, id_cliente, cursor=cursor)
             errores_ecuacion_count = len(errores_ecuacion_list)
-            print(f"   Errores ecuación individual: {errores_ecuacion_count}")
-            
-            # 3. VALIDACIONES CRÍTICAS
-            print(f"🔍 Ejecutando validaciones...")
+            app_logger.info(f"Errores en ecuación contable individual: {errores_ecuacion_count}")
             
             validation_errors = []
             
-            # Validación: Debe haber registros insertados (según conteo por IdCliente)
             if totales_generales["total_registros"] == 0:
                 validation_errors.append("No se insertaron registros")
-            
-            # Agrega otras validaciones si es necesario...
-            
-            # Si hay errores de validación, hacer ROLLBACK
+
             if validation_errors:
                 cursor.execute("ROLLBACK TRANSACTION")
-                print(f"🔙 ROLLBACK ejecutado - Validaciones fallaron:")
+                log_transaction("ROLLBACK", f"Validaciones fallaron: {'; '.join(validation_errors)}", success=False)
+                app_logger.warning(f" ROLLBACK - Validaciones fallaron")
                 for error in validation_errors:
-                    print(f"   ❌ {error}")
+                    print(f"    {error}")
                 
                 return {
                     "success": False,
@@ -619,13 +663,10 @@ class DatabaseRepository:
                     "diferencia_ecuacion": diferencia_ecuacion
                 }
             
-            # 4. TODAS LAS VALIDACIONES PASARON - HACER COMMIT
             cursor.execute("COMMIT TRANSACTION")
             conn.commit()
-            print(f" COMMIT ejecutado - Todos los datos guardados permanentemente")
-            print(f" Transacción completada exitosamente")
-            
-
+            log_transaction("COMMIT", f"{rows_inserted} registros guardados", success=True)
+            app_logger.info(f"✅ COMMIT ejecutado exitosamente")
             
             return {
                 "success": True,
@@ -639,14 +680,13 @@ class DatabaseRepository:
             }
         
         except Exception as e:
-            # Error inesperado - ROLLBACK
+
             try:
-                cursor.execute("ROLLBACK TRANSACTION")
-                print(f"🔙 ROLLBACK ejecutado - Error inesperado: {str(e)}")
+                cursor.execute("ROLLBACK TRANSACTION")                
             except:
                 pass
-            print(f"🔙 ROLLBACK ejecutado - Error inesperado: {str(e)}")
-            
+            log_transaction("ROLLBACK", f"Error inesperado: {str(e)}", success=False)
+            app_logger.error(f"Error en transacción", exc_info=True)
             return {
                 "success": False,
                 "message": f"Error en transacción: {str(e)}",

@@ -28,7 +28,7 @@ class ExcelService:
         errores_ecuacion_count: int = 0,
         diferencia_ecuacion: Decimal = None
     ):
-        """Helper para registrar logs de ERROR"""
+
         
         # Si no tenemos info del cliente, intentar obtenerla
         if not nombre_cliente or not id_cliente:

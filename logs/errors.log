@@ -1,0 +1,25 @@
+2025-10-29 00:34:44 | ERROR    | app_logger | view_log:112 | Error leyendo log 'application.log': 
+2025-10-29 02:09:57 | ERROR    | app_logger | tail_log:200 | Intento de tail de log no existente: application.log
+2025-10-29 02:10:50 | ERROR    | app_logger | tail_log:200 | Intento de tail de log no existente: application.log
+2025-10-29 02:13:15 | ERROR    | app_logger | get_connection:36 | Error al conectar a BD: ('42000', "[42000] [FreeTDS][SQL Server]Cannot open server 'servidor-desarrollo-db' requested by the login. Client with IP address '191.92.182.242' is not allowed to access the server.  To enable access, use the Azure Management Portal or run sp_set_firewall_rule on the master database to create a firewall rule for this IP address or address range.  It may take up to five minutes for this change to take effect. (40615) (SQLDriverConnect)")
+Traceback (most recent call last):
+  File "/workspace/app/repositories/database_repository.py", line 32, in get_connection
+    conn = pyodbc.connect(self.connection_string)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyodbc.ProgrammingError: ('42000', "[42000] [FreeTDS][SQL Server]Cannot open server 'servidor-desarrollo-db' requested by the login. Client with IP address '191.92.182.242' is not allowed to access the server.  To enable access, use the Azure Management Portal or run sp_set_firewall_rule on the master database to create a firewall rule for this IP address or address range.  It may take up to five minutes for this change to take effect. (40615) (SQLDriverConnect)")
+2025-10-29 02:13:15 | ERROR    | app_logger | log_database_connection:58 |  Error de conexión a BD: {'success': False, 'error_code': '42000', 'error_message': "[42000] [FreeTDS][SQL Server]Cannot open server 'servidor-desarrollo-db' requested by the login. Client with IP address '191.92.182.242' is not allowed to access the server.  To enable access, use the Azure Management Portal or run sp_set_firewall_rule on the master database to create a firewall rule for this IP address or address range.  It may take up to five minutes for this change to take effect. (40615) (SQLDriverConnect)", 'type': 'DatabaseError', 'server': 'servidor-desarrollo-db.database.windows.net,1433', 'database': 'bd_codigo_caf_pruebas', 'driver': 'FreeTDS'}
+2025-10-29 02:13:15 | ERROR    | app_logger | test_connection:117 | Error de pyodbc: {'success': False, 'error_code': '42000', 'error_message': "[42000] [FreeTDS][SQL Server]Cannot open server 'servidor-desarrollo-db' requested by the login. Client with IP address '191.92.182.242' is not allowed to access the server.  To enable access, use the Azure Management Portal or run sp_set_firewall_rule on the master database to create a firewall rule for this IP address or address range.  It may take up to five minutes for this change to take effect. (40615) (SQLDriverConnect)", 'type': 'DatabaseError', 'server': 'servidor-desarrollo-db.database.windows.net,1433', 'database': 'bd_codigo_caf_pruebas', 'driver': 'FreeTDS'}
+Traceback (most recent call last):
+  File "/workspace/app/repositories/database_repository.py", line 95, in test_connection
+    conn = self.get_connection()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/app/repositories/database_repository.py", line 32, in get_connection
+    conn = pyodbc.connect(self.connection_string)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyodbc.ProgrammingError: ('42000', "[42000] [FreeTDS][SQL Server]Cannot open server 'servidor-desarrollo-db' requested by the login. Client with IP address '191.92.182.242' is not allowed to access the server.  To enable access, use the Azure Management Portal or run sp_set_firewall_rule on the master database to create a firewall rule for this IP address or address range.  It may take up to five minutes for this change to take effect. (40615) (SQLDriverConnect)")
+2025-10-29 02:13:48 | ERROR    | app_logger | tail_log:200 | Intento de tail de log no existente: application.log
+2025-10-29 02:14:57 | ERROR    | app_logger | tail_log:200 | Intento de tail de log no existente: errors.log
+2025-10-29 02:17:41 | ERROR    | app_logger | tail_log:200 | Intento de tail de log no existente: errors.log
+2025-10-29 02:19:42 | ERROR    | app_logger | tail_log:200 | Intento de tail de log no existente: errors.log
+2025-10-29 02:20:05 | ERROR    | app_logger | tail_log:201 | Intento de tail de log no existente: errors.log
+2025-10-29 02:20:42 | ERROR    | app_logger | tail_log:201 | Intento de tail de log no existente: errors.log

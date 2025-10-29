@@ -8,7 +8,7 @@ from app.utils.job_manager import job_manager
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, BackgroundTasks
 from typing import List
 from datetime import datetime
-
+from app.utils.logger import app_logger
 router = APIRouter(prefix="/api/balance", tags=["Balance General"])
 excel_service = ExcelService()
 
@@ -58,14 +58,9 @@ async def process_excel(
             detail=f"Error guardando archivo: {str(e)}"
         )
     
-    # Crear el trabajo
     job = job_manager.create_job(job_id)
-    
-    # Imprimir el job_id en consola
-    print(f"🔄 Nuevo trabajo creado - Job ID: {job_id}")
-    print(f"   Cliente: {identificacion_cliente} | Fecha: {fecha} | Archivo: {file.filename}")
-    
-    # Ejecutar en un thread separado
+
+    app_logger.info(f"Nuevo trabajo creado - Job ID: {job_id}, Cliente: {identificacion_cliente}, Fecha: {fecha}, Archivo: {file.filename}")
     def process_in_thread():
         try:
             excel_service.process_and_save_async(
@@ -75,7 +70,7 @@ async def process_excel(
                 job_id
             )
         except Exception as e:
-            print(f"Error en thread de procesamiento: {str(e)}")
+            app_logger.error(f"Error en procesamiento del trabajo {job_id}: {str(e)}")
             job_manager.update_job(
                 job_id,
                 status=JobStatus.FAILED,

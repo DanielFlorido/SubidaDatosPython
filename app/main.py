@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.controllers import excel_controller
+from app.controllers import excel_controller, log_controller
 
 app = FastAPI(
     title="Excel to SQL API",
@@ -9,7 +9,7 @@ app = FastAPI(
 
 # Registra los routers
 app.include_router(excel_controller.router)
-
+app.include_router(log_controller.router)
 @app.get("/")
 async def root():
     return {"message": "API funcionando correctamente"}
