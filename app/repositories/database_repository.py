@@ -24,7 +24,7 @@ class DatabaseRepository:
             f"TDS_Version=8.0;"
             f"Encrypt=yes;"
         )
-        app_logger.info("DatabaseRepository initialized with provided connection settings.")
+        app_logger.info(f"DatabaseRepository initialized with server: {settings.db_server}, database: {settings.db_database}")
     
     def get_connection(self):
         try:
