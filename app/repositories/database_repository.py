@@ -17,9 +17,11 @@ class DatabaseRepository:
                 f"Connection Timeout=30;"
             )
         app_logger.info(f"DatabaseRepository initialized with server: {settings.db_server}, database: {settings.db_database}")
+    
     def get_connection(self):
         try:
-            app_logger.info("Intentando conectar a la base de datos...")
+            app_logger.info(f"Estableciendo conexión a BD: {settings.db_server}/{settings.db_database}/{settings.db_username}/{settings.db_driver}/{settings.db_port}")
+            app_logger.info(f"Connection String: {self.connection_string}")
             conn = pyodbc.connect(self.connection_string)
             app_logger.info("Conexión establecida exitosamente")
             return conn
