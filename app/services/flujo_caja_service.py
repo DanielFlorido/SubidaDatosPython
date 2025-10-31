@@ -13,12 +13,19 @@ class FlujoCajaService:
     def _es_fila_encabezado(self, fila: pd.Series) -> bool:
         """
         Determina si una fila es un encabezado o un detalle.
-        Una fila es encabezado si no tiene Comprobante ni Secuencia.
+        Una fila es encabezado si:
+        - No tiene Comprobante ni Secuencia, O
+        - La celda de 'Código contable' empieza con 'Cuenta contable:'
         """
         comprobante = str(fila.get('Comprobante', '')).strip()
         secuencia = str(fila.get('Secuencia', '')).strip()
+        codigo_contable = str(fila.get('Código contable', '')).strip()
+
+        if codigo_contable.lower().startswith("cuenta contable:"):
+            return True
         
         return not comprobante and not secuencia
+
     
     def _limpiar_valor_numerico(self, valor) -> float:
         """
@@ -41,32 +48,29 @@ class FlujoCajaService:
         except ValueError:
             return 0.0
     
-    def _limpiar_fecha(self, fecha) -> str:
+    def _limpiar_fecha(self, fecha, formato_sql: bool = False) -> str:
         """
-        Limpia y formatea una fecha al formato esperado por SQL Server (YYYY-MM-DD).
+        Si formato_sql=True, retorna en formato DD/MM/YYYY (para compatibilidad con SP actuales).
         """
-        if pd.isna(fecha) or fecha == '':
+        if pd.isna(fecha) or fecha in ['', None]:
             return ''
-        
-        # Si es string, intentar parsear
-        if isinstance(fecha, str):
-            try:
-                # Intentar formato DD/MM/YYYY
-                fecha_obj = datetime.strptime(fecha.strip(), '%d/%m/%Y')
-                return fecha_obj.strftime('%Y-%m-%d')
-            except ValueError:
+
+        try:
+            if isinstance(fecha, (pd.Timestamp, datetime)):
+                return fecha.strftime('%d/%m/%Y') if formato_sql else fecha.strftime('%Y-%m-%d')
+
+            fecha_str = str(fecha).strip()
+            for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y']:
                 try:
-                    # Intentar otros formatos comunes
-                    fecha_obj = datetime.strptime(fecha.strip(), '%Y-%m-%d')
-                    return fecha_obj.strftime('%Y-%m-%d')
+                    fecha_obj = datetime.strptime(fecha_str, fmt)
+                    return fecha_obj.strftime('%d/%m/%Y') if formato_sql else fecha_obj.strftime('%Y-%m-%d')
                 except ValueError:
-                    return ''
-        
-        # Si es datetime
-        if isinstance(fecha, datetime):
-            return fecha.strftime('%Y-%m-%d')
-        
+                    continue
+        except Exception:
+            pass
+
         return ''
+
     
     def _procesar_encabezado(self, fila: pd.Series) -> Dict:
         """
@@ -90,7 +94,7 @@ class FlujoCajaService:
             'cuenta_contable': str(fila['Cuenta contable']).strip(),
             'comprobante': str(fila.get('Comprobante', '')).strip(),
             'secuencia': str(fila.get('Secuencia', '')).strip(),
-            'fecha_elaboracion': self._limpiar_fecha(fila.get('Fecha elaboración', '')),
+            'fecha_elaboracion': self._limpiar_fecha(fila.get('Fecha elaboración', ''), formato_sql=True),
             'identificacion': str(fila.get('Identificación', '')).strip(),
             'suc': str(fila.get('Suc', '')).strip(),
             'nombre_tercero': str(fila.get('Nombre del tercero', '')).strip(),
@@ -122,12 +126,14 @@ class FlujoCajaService:
         """
         try:
             # Leer el archivo Excel
-            df = pd.read_excel(archivo_excel)
+            df = pd.read_excel(archivo_excel, skiprows=7)
             
             grupos = []  # Lista de grupos {encabezado, detalles}
             grupo_actual = None
             
             # Procesar cada fila EN ORDEN
+            print(f"columnas leídas: {df.columns.tolist()}")
+            app_logger.info(f"columnas leídas: {df.columns.tolist()}")
             for idx, fila in df.iterrows():
                 # Si encontramos una fila completamente vacía, TERMINAR procesamiento
                 if fila.isna().all():
@@ -235,43 +241,52 @@ class FlujoCajaService:
     ):
         """
         Procesa y guarda el flujo de caja de forma asíncrona con actualización de progreso.
-        
-        Args:
-            file_path: Ruta del archivo Excel
-            identificacion_cliente: Identificación del cliente
-            fecha: Fecha en formato YYYYMMDD
-            job_id: ID del trabajo para tracking
+        Registra logs de éxito o error según el resultado final.
         """
+        inicio = datetime.now()
         try:
             app_logger.info(f"[Job {job_id}] Iniciando procesamiento de flujo de caja")
             
-            # Actualizar estado: Leyendo archivo
             job_manager.update_job(
                 job_id,
                 status=JobStatus.PROCESSING,
                 message="Leyendo archivo Excel...",
                 progress=10
             )
-            
+
             # Convertir fecha de YYYYMMDD a YYYY-MM-DD
             fecha_formateada = f"{fecha[:4]}-{fecha[4:6]}-{fecha[6:]}"
             
             # Procesar Excel secuencialmente
             app_logger.info(f"[Job {job_id}] Procesando Excel...")
             grupos = self.procesar_excel_secuencial(file_path)
-            
+
             job_manager.update_job(
                 job_id,
                 message=f"Archivo procesado: {len(grupos)} grupos encontrados",
                 progress=30
             )
-            
+
             # Validar grupos
             app_logger.info(f"[Job {job_id}] Validando datos...")
             es_valido, mensaje_validacion = self.validar_grupos(grupos)
             
             if not es_valido:
                 app_logger.error(f"[Job {job_id}] Validación fallida: {mensaje_validacion}")
+
+                # Registrar log de error
+                tiempo_total = (datetime.now() - inicio).total_seconds()
+                self._log_error_flujo_caja(
+                    self.repository,
+                    path=file_path,
+                    encabezados=0,
+                    detalles=0,
+                    tiempo=tiempo_total,
+                    fecha=fecha_formateada,
+                    identificacion=identificacion_cliente,
+                    error_msg=mensaje_validacion
+                )
+
                 job_manager.update_job(
                     job_id,
                     status=JobStatus.FAILED,
@@ -280,13 +295,13 @@ class FlujoCajaService:
                     errors=[mensaje_validacion]
                 )
                 return
-            
+
             job_manager.update_job(
                 job_id,
                 message="Validación exitosa. Guardando en base de datos...",
                 progress=50
             )
-            
+
             # Guardar en base de datos
             app_logger.info(f"[Job {job_id}] Guardando en base de datos...")
             exito, mensaje, ids_encabezados = self.repository.subir_flujo_caja_secuencial(
@@ -294,11 +309,13 @@ class FlujoCajaService:
                 fecha_movimiento=fecha_formateada,
                 numero_identificacion=identificacion_cliente
             )
-            
+
+            tiempo_total = (datetime.now() - inicio).total_seconds()
+
             if exito:
                 app_logger.info(f"[Job {job_id}] Procesamiento exitoso. IDs: {ids_encabezados}")
-                
-                # Calcular totales para el resultado
+
+                # Calcular totales
                 total_detalles = sum(len(grupo['detalles']) for grupo in grupos)
                 total_debitos = sum(
                     sum(d['debito'] for d in grupo['detalles'])
@@ -308,7 +325,18 @@ class FlujoCajaService:
                     sum(d['credito'] for d in grupo['detalles'])
                     for grupo in grupos
                 )
-                
+
+                # Registrar log de éxito
+                self._log_success_flujo_caja(
+                    self.repository,
+                    path=file_path,
+                    encabezados=len(ids_encabezados),
+                    detalles=total_detalles,
+                    tiempo=tiempo_total,
+                    fecha=fecha_formateada,
+                    identificacion=identificacion_cliente
+                )
+
                 job_manager.update_job(
                     job_id,
                     status=JobStatus.COMPLETED,
@@ -324,8 +352,22 @@ class FlujoCajaService:
                         "identificacion_cliente": identificacion_cliente
                     }
                 )
+
             else:
                 app_logger.error(f"[Job {job_id}] Error al guardar: {mensaje}")
+
+                # Registrar log de error
+                self._log_error_flujo_caja(
+                    self.repository,
+                    path=file_path,
+                    encabezados=0,
+                    detalles=0,
+                    tiempo=tiempo_total,
+                    fecha=fecha_formateada,
+                    identificacion=identificacion_cliente,
+                    error_msg=mensaje
+                )
+
                 job_manager.update_job(
                     job_id,
                     status=JobStatus.FAILED,
@@ -333,9 +375,23 @@ class FlujoCajaService:
                     progress=100,
                     errors=[mensaje]
                 )
-        
+
         except Exception as e:
+            tiempo_total = (datetime.now() - inicio).total_seconds()
             app_logger.error(f"[Job {job_id}] Error inesperado: {str(e)}", exc_info=True)
+
+            # Registrar log de error general
+            self._log_error_flujo_caja(
+                self.repository,
+                path=file_path,
+                encabezados=0,
+                detalles=0,
+                tiempo=tiempo_total,
+                fecha=fecha,
+                identificacion=identificacion_cliente,
+                error_msg=str(e)
+            )
+
             job_manager.update_job(
                 job_id,
                 status=JobStatus.FAILED,
@@ -343,3 +399,43 @@ class FlujoCajaService:
                 progress=100,
                 errors=[str(e)]
             )
+
+    def _log_success_flujo_caja(self, repository, path, encabezados, detalles, tiempo, fecha, identificacion):
+        """Registra un log de carga exitosa del flujo de caja."""
+        try:
+            id_log = repository.insert_log_flujo_caja(
+                path=path,
+                cantidad_encabezados=encabezados,
+                cantidad_detalles=detalles,
+                estado="EXITOSO",
+                mensaje_error=None,
+                tiempo_ejecucion=tiempo,
+                fecha_movimiento=fecha,
+                numero_identificacion=identificacion
+            )
+            app_logger.info(f" Log de flujo de caja registrado correctamente (IdLog={id_log})")
+            return {"success": True, "id_log": id_log}
+        except Exception as e:
+            app_logger.error(f" No se pudo registrar el log exitoso: {str(e)}")
+            return {"success": False, "error": str(e)}
+
+
+    def _log_error_flujo_caja(self, repository, path, encabezados, detalles, tiempo, fecha, identificacion, error_msg):
+        """Registra un log de flujo de caja con error."""
+        try:
+            id_log = repository.insert_log_flujo_caja(
+                path=path,
+                cantidad_encabezados=encabezados,
+                cantidad_detalles=detalles,
+                estado="ERROR",
+                mensaje_error=error_msg,
+                tiempo_ejecucion=tiempo,
+                fecha_movimiento=fecha,
+                numero_identificacion=identificacion
+            )
+            app_logger.info(f" Log de error de flujo de caja registrado (IdLog={id_log})")
+            return {"success": True, "id_log": id_log}
+        except Exception as e:
+            app_logger.error(f" No se pudo registrar el log de error: {str(e)}")
+            return {"success": False, "error": str(e)}
+

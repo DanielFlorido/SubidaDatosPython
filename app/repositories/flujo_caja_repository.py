@@ -275,3 +275,69 @@ class FlujoCajaRepository(DatabaseRepository):
         finally:
             if conn:
                 conn.close()
+                
+    def insert_log_flujo_caja(
+        self,
+        path: str,
+        cantidad_encabezados: int,
+        cantidad_detalles: int,
+        estado: str,
+        mensaje_error: str,
+        tiempo_ejecucion: str,
+        fecha_movimiento: str,
+        numero_identificacion: str
+    ) -> int:
+        """
+        Inserta un registro en LogFlujoCaja y retorna el IdLog generado.
+        Usa el stored procedure [dbo].[LogFlujoCajaInsertar].
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                DECLARE @IdLog INT;
+                EXEC [dbo].[LogFlujoCajaInsertar]
+                    @UsuarioProceso = ?,
+                    @NombreArchivo = ?,
+                    @CantidadEncabezados = ?,
+                    @CantidadDetalles = ?,
+                    @Estado = ?,
+                    @MensajeError = ?,
+                    @TiempoEjecucion = ?,
+                    @FechaMovimiento = ?,
+                    @NumeroIdentificacion = ?,
+                    @IdLog = @IdLog OUTPUT;
+                SELECT @IdLog AS IdLog;
+            """, (
+                'EquipoPrueba',             
+                path,
+                cantidad_encabezados,
+                cantidad_detalles,
+                estado,
+                mensaje_error,
+                tiempo_ejecucion,
+                fecha_movimiento,
+                numero_identificacion
+            ))
+            
+            row = cursor.fetchone()
+            conn.commit()
+            id_log = row[0] if row else None
+            
+            print(f" LogFlujoCajaInsertar ejecutado correctamente - IdLog={id_log}")
+            app_logger.info(f"LogFlujoCaja insertado con IdLog: {id_log}")
+            return id_log
+
+        except Exception as e:
+            try:
+                conn.rollback()
+                app_logger.info("Transacción revertida en insert_log_flujo_caja debido a error.")
+            except:
+                pass
+            print(f" Error en insert_log_flujo_caja: {str(e)}")
+            app_logger.error(f"Error al insertar log de flujo de caja: {str(e)}")
+            raise e
+        finally:
+            cursor.close()
+            conn.close()

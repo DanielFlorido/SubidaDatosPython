@@ -1,6 +1,8 @@
 from typing import Dict
 from datetime import datetime
 from app.models.schemas import JobStatus, JobStatusResponse
+from datetime import datetime
+from typing import Dict, Any
 
 class JobManager:
     def __init__(self):
@@ -17,8 +19,10 @@ class JobManager:
             total_rows=0,
             processed_rows=0,
             errors=[],
+            result=None, 
             created_at=now,
             updated_at=now,
+            started_at=None,  
             completed_at=None
         )
         self.jobs[job_id] = job
@@ -32,7 +36,8 @@ class JobManager:
         progress: int = None,
         total_rows: int = None,
         processed_rows: int = None,
-        errors: list = None
+        errors: list = None,
+        result: Any = None 
     ):
         """Actualiza el estado de un trabajo"""
         if job_id not in self.jobs:
@@ -40,8 +45,6 @@ class JobManager:
         
         job = self.jobs[job_id]
         
-        if status:
-            job.status = status
         if status:
             job.status = status
             print(f"📊 [{job_id[:8]}...] Estado: {status.value} - {message if message else ''}")
@@ -55,8 +58,13 @@ class JobManager:
             job.processed_rows = processed_rows
         if errors is not None:
             job.errors = errors
+        if result is not None:
+            job.result = result  
         
         job.updated_at = datetime.now().isoformat()
+        
+        if status == JobStatus.PROCESSING and not getattr(job, "started_at", None):
+            job.started_at = datetime.now().isoformat()
         
         if status in [JobStatus.COMPLETED, JobStatus.FAILED]:
             job.completed_at = datetime.now().isoformat()
@@ -72,5 +80,6 @@ class JobManager:
         if job_id in self.jobs:
             del self.jobs[job_id]
 
-# Instancia global
+
+# ✅ Instancia global
 job_manager = JobManager()

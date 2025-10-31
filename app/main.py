@@ -5,7 +5,7 @@ from app.controllers import excel_controller, log_controller, flujo_caja_control
 app = FastAPI(
     title="Excel to SQL API",
     description="API para cargar Excel y guardar en SQL Server",
-    version="1.1.1"
+    version="1.1.24"
 )
 
 # Registra los routers

@@ -500,3 +500,105 @@ class BalanceGeneralRepository(DatabaseRepository):
         finally:
             cursor.close()
             conn.close()
+            
+def insert_log_carga(
+        self,
+        fecha_carga: str,
+        id_cliente: str,
+        nombre_cliente: str,
+        estado: str,
+        total_registros: int,
+        total_activos: Decimal,
+        total_pasivos: Decimal,
+        total_patrimonio: Decimal,
+        total_ingresos: Decimal,
+        total_gastos: Decimal,
+        suma_saldo_inicial: Decimal,
+        suma_debito: Decimal,
+        suma_credito: Decimal,
+        observaciones: str,
+        archivo_origen: str,
+        cantidad_errores_jerarquia: int,
+        diferencia_ecuacion_contable: Decimal,
+        tiempo_ejecucion:str
+    ):
+        """Inserta un log de carga en la base de datos"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                EXEC [dbo].[LogCargasBalanceGeneral_Insertar]
+                    @FechaCarga = ?,
+                    @IdCliente = ?,
+                    @NombreCliente = ?,
+                    @TotalRegistros = ?,
+                    @TotalActivos = ?,
+                    @TotalPasivos = ?,
+                    @TotalPatrimonio = ?,
+                    @TotalIngresos = ?,
+                    @TotalGastos = ?,
+                    @SumaSaldoInicial = ?,
+                    @SumaDebito = ?,
+                    @SumaCredito = ?,
+                    @UsuarioCarga = ?,
+                    @Observaciones = ?,
+                    @ArchivoOrigen = ?,
+                    @CantidadErroresJerarquia = ?,
+                    @DiferenciaEcuacionContable = ?,
+                    @Estado = ?,
+                    @TiempoEjecucionSegundos = ?
+            """, (
+                fecha_carga,
+                id_cliente,
+                nombre_cliente,
+                total_registros,
+                float(total_activos),
+                float(total_pasivos),
+                float(total_patrimonio),
+                float(total_ingresos),
+                float(total_gastos),
+                float(suma_saldo_inicial),
+                float(suma_debito),
+                float(suma_credito),
+                'EquipoPruebas',
+                observaciones,
+                archivo_origen,
+                cantidad_errores_jerarquia,
+                float(diferencia_ecuacion_contable),
+                estado,
+                tiempo_ejecucion
+            ))
+            conn.commit()
+            app_logger.info({
+                "action": "insert_log_carga",
+                "fecha_carga": fecha_carga,
+                "id_cliente": id_cliente,
+                "nombre_cliente": nombre_cliente,
+                "total_registros": total_registros,
+                "total_activos": float(total_activos),
+                "total_pasivos": float(total_pasivos),
+                "total_patrimonio": float(total_patrimonio),
+                "total_ingresos": float(total_ingresos),
+                "total_gastos": float(total_gastos),
+                "suma_saldo_inicial": float(suma_saldo_inicial),
+                "suma_debito": float(suma_debito),
+                "suma_credito": float(suma_credito),
+                "observaciones": observaciones,
+                "archivo_origen": archivo_origen,
+                "cantidad_errores_jerarquia": cantidad_errores_jerarquia,
+                "diferencia_ecuacion": float(diferencia_ecuacion_contable),
+                "estado": estado,
+                "tiempo_ejecucion": tiempo_ejecucion
+            })
+
+            return True
+        except Exception as e:
+            try:
+                conn.rollback()
+            except:
+                pass
+            raise e
+        finally:
+            cursor.close()
+            conn.close()

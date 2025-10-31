@@ -76,9 +76,10 @@ class ExcelService:
                 diferencia_ecuacion_contable=diferencia_ecuacion,
                 tiempo_ejecucion=tiempo_ejecucion
             )
-            print(f"📝 Log de ERROR guardado")
+            print(f" Log de ERROR guardado")
+            
         except Exception as e:
-            print(f"⚠️ No se pudo guardar log de error: {str(e)}")
+            print(f" No se pudo guardar log de error: {str(e)}")
     
     def _log_exitoso(
         self,
@@ -120,9 +121,9 @@ class ExcelService:
                 diferencia_ecuacion_contable=ecuacion["diferencia_ecuacion_contable"],
                 tiempo_ejecucion=tiempo_ejecucion
             )
-            print(f"📝 Log EXITOSO guardado")
+            print(f" Log EXITOSO guardado")
         except Exception as e:
-            print(f"⚠️ No se pudo guardar log exitoso: {str(e)}")
+            print(f" No se pudo guardar log exitoso: {str(e)}")
     
     def _log_advertencia(
         self,
@@ -161,9 +162,9 @@ class ExcelService:
                 diferencia_ecuacion_contable=ecuacion["diferencia_ecuacion_contable"],
                 tiempo_ejecucion=tiempo_ejecucion
             )
-            print(f"📝 Log de ADVERTENCIA guardado")
+            print(f" Log de ADVERTENCIA guardado")
         except Exception as e:
-            print(f"⚠️ No se pudo guardar log de advertencia: {str(e)}")
+            print(f" No se pudo guardar log de advertencia: {str(e)}")
 
     def _is_empty_row(self, row) -> bool:
         """Verifica si una fila está vacía o contiene solo valores NaN"""

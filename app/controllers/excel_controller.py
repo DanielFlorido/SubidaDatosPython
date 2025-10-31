@@ -5,10 +5,13 @@ import threading
 from app.services.excel_service import ExcelService
 from app.models.schemas import JobResponse, JobStatusResponse, JobStatus
 from app.utils.job_manager import job_manager
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi.responses import JSONResponse
 from typing import List
 from datetime import datetime
 from app.utils.logger import app_logger
+from starlette.status import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
+
 router = APIRouter(prefix="/api/balance", tags=["Balance General"])
 excel_service = ExcelService()
 
@@ -108,17 +111,27 @@ async def get_job_status(job_id: str):
     
     return job
 
+
 @router.get("/health")
 async def health_check():
-    """Verifica la conexión a la base de datos"""
     try:
-        is_connected = excel_service.repository.test_connection()
-        if is_connected:
-            return {"status": "healthy", "database": "connected"}
+        result = excel_service.repository.test_connection()
+        if result.get("success"):
+            return JSONResponse(
+                content={"status": "healthy", "database": "connected"},
+                status_code=HTTP_200_OK,
+            )
         else:
-            return {"status": "unhealthy", "database": "disconnected"}
+            return JSONResponse(
+                content={"status": "unhealthy", "database": "disconnected", "details": result},
+                status_code=HTTP_503_SERVICE_UNAVAILABLE,
+            )
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return JSONResponse(
+            content={"status": "error", "message": str(e)},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
 
 def cleanup_file(file_path: str):
     """Elimina el archivo temporal después del procesamiento"""

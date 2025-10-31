@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator, validator
-from typing import List, Optional
+from typing import Any, List, Optional
 from decimal import Decimal
 from enum import Enum
 from datetime import datetime
@@ -75,13 +75,16 @@ class JobStatusResponse(BaseModel):
     job_id: str
     status: JobStatus
     message: str
-    progress: int  # 0-100
-    total_rows: int = 0
-    processed_rows: int = 0
-    errors: List[str] = []
+    progress: int
+    total_rows: int
+    processed_rows: int
+    errors: list
+    result: Optional[Any] = None 
     created_at: str
     updated_at: str
+    started_at: Optional[str] = None 
     completed_at: Optional[str] = None
+
     
 class ValidationResult(BaseModel):
     is_valid: bool
