@@ -1,41 +1,36 @@
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
 WORKDIR /workspace
+
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    freetds-dev \
-    freetds-bin \
-    unixodbc \
-    unixodbc-dev \
-    tdsodbc \
+    curl apt-transport-https gnupg lsb-release unixodbc unixodbc-dev gcc g++ \
+    software-properties-common \
+    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
+    && curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql18 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN echo "[FreeTDS]\n\
-    Description = FreeTDS Driver\n\
-    Driver = /usr/lib/x86_64-linux-gnu/odbc/libtdsodbc.so\n\
-    Setup = /usr/lib/x86_64-linux-gnu/odbc/libtdsS.so\n\
-    UsageCount = 1\n\
-    " > /etc/odbcinst.ini
-
-RUN echo "[global]\n\
-tds version = 8.0\n\
-client charset = UTF-8\n\
-port = 1433\n\
-encryption = required\n\
-text size = 64512" > /etc/freetds/freetds.conf
+RUN add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update && \
+    apt-get install -y python3.11 python3.11-dev python3.11-venv python3-pip && \
+    ln -s /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
 
 RUN odbcinst -q -d || echo "No se pudieron listar drivers"
+
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+
 COPY . .
+
 
 RUN mkdir -p logs && chmod 755 logs
 
 
-# Comando de inicio
 CMD ["gunicorn", "app.main:app", \
      "--workers", "4", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \

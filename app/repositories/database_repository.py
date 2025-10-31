@@ -6,16 +6,16 @@ from decimal import Decimal
 class DatabaseRepository:
     def __init__(self):        
         self.connection_string = (
-                f"DRIVER={{{settings.db_driver}}};"
-                f"SERVER={settings.db_server};"
-                f"PORT={settings.db_port};"
-                f"DATABASE={settings.db_database};"
-                f"UID={settings.db_username};"
-                f"PWD={settings.db_password};"
-                f"Encrypt=yes;"
-                f"TrustServerCertificate=no;"
-                f"Connection Timeout=30;"
-            )
+            f"DRIVER={{{settings.db_driver}}};"
+            f"SERVER={settings.db_server},{settings.db_port};"
+            f"DATABASE={settings.db_database};"
+            f"UID={settings.db_username};"
+            f"PWD={settings.db_password};"
+            f"Encrypt=yes;"
+            f"TrustServerCertificate=no;"
+            f"Connection Timeout=30;"
+        )
+
         app_logger.info(f"DatabaseRepository initialized with server: {settings.db_server}, database: {settings.db_database}")
     
     def get_connection(self):
