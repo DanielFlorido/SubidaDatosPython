@@ -5,13 +5,12 @@ import time
 from typing import List, Dict
 from decimal import Decimal, InvalidOperation
 from app.models.schemas import BalanceGeneralRow, ExcelData
-from app.repositories.database_repository import DatabaseRepository
 from app.utils.job_manager import job_manager
 from app.models.schemas import JobStatus
-
+from app.repositories.balance_general_repository import BalanceGeneralRepository
 class ExcelService:
     def __init__(self):
-        self.repository = DatabaseRepository()
+        self.repository = BalanceGeneralRepository()
 
     def _log_error(
         self,

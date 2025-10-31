@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, validator
 from typing import List, Optional
 from decimal import Decimal
 from enum import Enum
+from datetime import datetime
 
 class BalanceGeneralRow(BaseModel):
     nivel: str = Field(..., description="Nivel de la cuenta")
@@ -123,3 +124,80 @@ class ErrorEcuacion(BaseModel):
     saldo_final: Decimal
     saldo_calculado: Decimal
     diferencia: Decimal
+class EncabezadoFlujoCajaBase(BaseModel):
+    codigo_contable: str = Field(..., description="Código contable")
+    cuenta_contable: str = Field(..., description="Nombre de la cuenta contable")
+    saldo_inicial: float = Field(0.0, description="Saldo inicial")
+    debito: float = Field(0.0, description="Débito")
+    credito: float = Field(0.0, description="Crédito")
+    saldo_total_cuenta: float = Field(0.0, description="Saldo total de la cuenta")
+
+class DetalleFlujoCajaBase(BaseModel):
+    codigo_contable: str = Field(..., description="Código contable")
+    cuenta_contable: str = Field(..., description="Nombre de la cuenta contable")
+    comprobante: Optional[str] = Field("", description="Número de comprobante")
+    secuencia: Optional[str] = Field("", description="Secuencia")
+    fecha_elaboracion: Optional[str] = Field("", description="Fecha de elaboración")
+    identificacion: Optional[str] = Field("", description="Identificación del tercero")
+    suc: Optional[str] = Field("", description="Sucursal")
+    nombre_tercero: Optional[str] = Field("", description="Nombre del tercero")
+    descripcion: Optional[str] = Field("", description="Descripción")
+    detalle: Optional[str] = Field("", description="Detalle adicional")
+    centro_costo: Optional[str] = Field("", description="Centro de costo")
+    debito: float = Field(0.0, description="Débito")
+    credito: float = Field(0.0, description="Crédito")
+    saldo_movimiento: float = Field(0.0, description="Saldo del movimiento")
+
+class FlujoCajaUploadRequest(BaseModel):
+    fecha_movimiento: str = Field(..., description="Fecha del movimiento (YYYY-MM-DD)")
+    numero_identificacion: str = Field(..., description="Número de identificación")
+    
+    @validator('fecha_movimiento')
+    def validate_fecha(cls, v):
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+            return v
+        except ValueError:
+            raise ValueError('La fecha debe estar en formato YYYY-MM-DD')
+
+class FlujoCajaUploadResponse(BaseModel):
+    success: bool
+    message: str
+    data: Optional[dict] = None
+
+class EncabezadoFlujoCajaResponse(BaseModel):
+    id: int
+    codigo_contable: str
+    cuenta_contable: str
+    saldo_inicial: float
+    debito: float
+    credito: float
+    saldo_total_cuenta: float
+    fecha_movimiento: str
+    numero_identificacion: str
+    fecha_creacion: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+class DetalleFlujoCajaResponse(BaseModel):
+    id: int
+    id_encabezado: int
+    codigo_contable: str
+    cuenta_contable: str
+    comprobante: Optional[str]
+    secuencia: Optional[str]
+    fecha_elaboracion: Optional[str]
+    identificacion: Optional[str]
+    suc: Optional[str]
+    nombre_tercero: Optional[str]
+    descripcion: Optional[str]
+    detalle: Optional[str]
+    centro_costo: Optional[str]
+    debito: float
+    credito: float
+    saldo_movimiento: float
+    fecha_creacion: Optional[datetime]
+
+    class Config:
+        from_attributes = True
