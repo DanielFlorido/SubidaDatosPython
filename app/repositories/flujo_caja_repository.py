@@ -48,14 +48,21 @@ class FlujoCajaRepository(DatabaseRepository):
             
             # Obtener el ID generado
             result = cursor.fetchone()
-            id_encabezado = result[0] if result else None
-            app_logger.debug(f"Encabezado insertado con ID: {id_encabezado}")
+            if not result:
+                app_logger.error("No se obtuvo el ID del encabezado después de la inserción.")
+                raise Exception("No se pudo obtener el ID del encabezado")
+            
+            id_encabezado = result[0]
+            app_logger.info(f"Encabezado insertado con ID: {id_encabezado}")
+
             if not id_encabezado:
                 app_logger.error("No se pudo obtener el ID del encabezado después de la inserción.")
                 raise Exception("No se pudo obtener el ID del encabezado")
             
             return id_encabezado
-            
+        except pyodbc.ProgrammingError as db_err:
+            app_logger.error(f"Error de programación en la base de datos: {str(db_err)}")
+            raise Exception(f"Error de programación en la base de datos: {str(db_err)}")
         except Exception as e:
             app_logger.error(f"Error al insertar encabezado: {str(e)}")
             raise Exception(f"Error al insertar encabezado: {str(e)}")
