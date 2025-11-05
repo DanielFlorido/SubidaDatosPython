@@ -1,13 +1,14 @@
-from typing import Dict
+from typing import Dict, Optional
 from datetime import datetime
 from app.models.schemas import JobStatus, JobStatusResponse
 from datetime import datetime
 from typing import Dict, Any
-
+from app.repositories.database_repository import DatabaseRepository
 class JobManager:
     def __init__(self):
         self.jobs: Dict[str, JobStatusResponse] = {}
-    
+        self.repository = DatabaseRepository()
+
     def create_job(self, job_id: str) -> JobStatusResponse:
         """Crea un nuevo trabajo"""
         now = datetime.now().isoformat()
@@ -47,7 +48,7 @@ class JobManager:
         
         if status:
             job.status = status
-            print(f"📊 [{job_id[:8]}...] Estado: {status.value} - {message if message else ''}")
+            print(f"[{job_id[:8]}...] Estado: {status.value} - {message if message else ''}")
         if message:
             job.message = message
         if progress is not None:
@@ -68,18 +69,19 @@ class JobManager:
         
         if status in [JobStatus.COMPLETED, JobStatus.FAILED]:
             job.completed_at = datetime.now().isoformat()
-        
+        self.repository.insert_or_update_job_history(job.dict())
         return job
-    
-    def get_job(self, job_id: str) -> JobStatusResponse:
-        """Obtiene el estado de un trabajo"""
-        return self.jobs.get(job_id)
     
     def delete_job(self, job_id: str):
         """Elimina un trabajo"""
         if job_id in self.jobs:
             del self.jobs[job_id]
 
-
-# ✅ Instancia global
+    def get_job(self, job_id: str) -> JobStatusResponse:
+        """Obtiene el historial de un trabajo específico desde la base de datos"""
+        job = self.jobs.get(job_id)
+        if not job:
+            return self.repository.get_job_history(job_id)
+        return job
+    
 job_manager = JobManager()

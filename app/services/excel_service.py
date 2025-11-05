@@ -2,8 +2,9 @@ import pandas as pd
 import uuid
 import os
 import time
-from typing import List, Dict
+from typing import Any, List, Dict, Optional
 from decimal import Decimal, InvalidOperation
+import app
 from app.models.schemas import BalanceGeneralRow, ExcelData
 from app.utils.job_manager import job_manager
 from app.models.schemas import JobStatus
@@ -400,7 +401,7 @@ class ExcelService:
             nombre_cliente = cliente_info["nombre_cliente"]
             tiempo_ejecucion = int(time.time() - start_time)
             
-            print(f"📋 Cliente: {nombre_cliente} (ID: {id_cliente})")
+            print(f" Cliente: {nombre_cliente} (ID: {id_cliente})")
             
             # 4. Procesar resultado de la transacción
             if not result["success"]:
@@ -432,7 +433,7 @@ class ExcelService:
                 return
             
             # 5. ÉXITO - Commit ejecutado
-            print(f"✅ Transacción exitosa - Datos guardados permanentemente")
+            print(f" Transacción exitosa - Datos guardados permanentemente")
             
             totales_generales = result["totales_generales"]
             totales_clase = result["totales_clase"]
@@ -475,7 +476,7 @@ class ExcelService:
                     ecuacion=ecuacion,
                     errores_ecuacion_count=errores_ecuacion_count
                 )
-                estado = 'EXITOSO'
+                estado = 'EXITOSO'                
             
             # Finalizar con éxito
             job_manager.update_job(

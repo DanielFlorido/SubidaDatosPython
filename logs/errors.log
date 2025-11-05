@@ -1,0 +1,34 @@
+2025-11-05 01:02:41 | ERROR    | app_logger | get_job_history:201 | Error al obtener JobHistory para JobId=0a9b29ea-be84-4607-9e42-43eecbef462c: name 'JobStatus' is not defined
+2025-11-05 01:03:06 | ERROR    | app_logger | save_with_transaction_and_validations:374 | Error insertando fila 322: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Error code 0x2746 (10054) (SQLExecDirectW)')
+Traceback (most recent call last):
+  File "/workspace/app/repositories/balance_general_repository.py", line 335, in save_with_transaction_and_validations
+    cursor.execute("""
+pyodbc.OperationalError: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Error code 0x2746 (10054) (SQLExecDirectW)')
+2025-11-05 01:03:06 | ERROR    | app_logger | log_transaction:77 |  Transacción FALLIDA: ROLLBACK - Error inesperado: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]Communication link failure (0) (SQLExecDirectW)')
+2025-11-05 01:03:06 | ERROR    | app_logger | save_with_transaction_and_validations:492 | Error en transacción
+Traceback (most recent call last):
+  File "/workspace/app/repositories/balance_general_repository.py", line 335, in save_with_transaction_and_validations
+    cursor.execute("""
+pyodbc.OperationalError: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Error code 0x2746 (10054) (SQLExecDirectW)')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/app/repositories/balance_general_repository.py", line 375, in save_with_transaction_and_validations
+    cursor.execute("ROLLBACK TRANSACTION")
+pyodbc.OperationalError: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]Communication link failure (0) (SQLExecDirectW)')
+2025-11-05 01:08:53 | ERROR    | app_logger | get_job_history:201 | Error al obtener JobHistory para JobId=b502dbb9-04b4-43dd-919b-9deb1f202721: name 'JobStatus' is not defined
+2025-11-05 01:10:38 | ERROR    | app_logger | get_job_history:201 | Error al obtener JobHistory para JobId=b502dbb9-04b4-43dd-919b-9deb1f202721: name 'json' is not defined
+2025-11-05 01:12:03 | ERROR    | app_logger | get_job_history:201 | Error al obtener JobHistory para JobId=b502dbb9-04b4-43dd-919b-9deb1f202721: 4 validation errors for JobStatusResponse
+created_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 5, 1, 4, 13, 960768), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+updated_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 5, 1, 5, 54, 240078), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+started_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 5, 1, 4, 13, 963111), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+completed_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 5, 1, 5, 54, 240115), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type

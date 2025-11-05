@@ -341,6 +341,7 @@ class FlujoCajaRepository(DatabaseRepository):
                 conn.rollback()
                 app_logger.info("Transacción revertida en insert_log_flujo_caja debido a error.")
             except:
+                app_logger.error("Error al intentar hacer rollback en insert_log_flujo_caja.", exc_info=True)
                 pass
             print(f" Error en insert_log_flujo_caja: {str(e)}")
             app_logger.error(f"Error al insertar log de flujo de caja: {str(e)}")
